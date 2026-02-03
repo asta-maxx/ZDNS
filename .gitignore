@@ -45,8 +45,7 @@ ENV/
 *.sqlite3
 
 # ML Model files (large binary files)
-*.pkl
-*.pickle
+
 *.h5
 *.hdf5
 *.pt
