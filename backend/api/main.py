@@ -190,6 +190,13 @@ from backend.utils.metrics import inc, get_metrics
 from backend.utils.rules import list_rules, create_rule, update_rule, delete_rule, evaluate_domain
 from backend.utils.devices import list_devices, update_device, count_active_devices
 from backend.models.train_model import main as train_model_main
+from backend.utils.stix_store import (
+    list_collections,
+    get_collection,
+    add_objects,
+    get_objects,
+    get_manifest,
+)
 
 @app.get("/model/status")
 def model_status():
@@ -338,6 +345,68 @@ def train_model():
         return {"status": "ok", "message": "Model trained and saved"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# TAXII 2.1 (minimal server)
+@app.get("/taxii2")
+def taxii_discovery(request: Request):
+    base = str(request.base_url).rstrip("/")
+    return {
+        "title": "ZDNS TAXII 2.1",
+        "description": "ZDNS Threat Intelligence TAXII server",
+        "default": f"{base}/taxii2/api1",
+        "api_roots": [f"{base}/taxii2/api1"],
+    }
+
+
+@app.get("/taxii2/api1")
+def taxii_api_root():
+    return {
+        "title": "ZDNS API Root",
+        "versions": ["taxii-2.1"],
+        "max_content_length": 10485760,
+    }
+
+
+@app.get("/taxii2/api1/collections")
+def taxii_collections():
+    return {"collections": list_collections()}
+
+
+@app.get("/taxii2/api1/collections/{collection_id}")
+def taxii_collection(collection_id: str):
+    col = get_collection(collection_id)
+    if not col:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    return col
+
+
+@app.get("/taxii2/api1/collections/{collection_id}/manifest")
+def taxii_manifest(collection_id: str):
+    return {"objects": get_manifest(collection_id)}
+
+
+@app.get("/taxii2/api1/collections/{collection_id}/objects")
+def taxii_objects(collection_id: str, added_after: str | None = None, limit: int = 500):
+    objects = get_objects(collection_id, limit=limit, after=added_after)
+    return {"objects": objects}
+
+
+@app.post("/taxii2/api1/collections/{collection_id}/objects")
+def taxii_add_objects(collection_id: str, data: dict):
+    objects = data.get("objects", [])
+    if not isinstance(objects, list):
+        raise HTTPException(status_code=400, detail="objects must be a list")
+    return add_objects(collection_id, objects)
+
+
+@app.post("/taxii2/import")
+def taxii_import_bundle(data: dict):
+    collection_id = data.get("collection_id", "zdns-threat-intel")
+    if data.get("type") != "bundle":
+        raise HTTPException(status_code=400, detail="Expected STIX bundle")
+    objects = data.get("objects", [])
+    return add_objects(collection_id, objects)
 
 
 @app.get("/{full_path:path}", response_class=HTMLResponse)
