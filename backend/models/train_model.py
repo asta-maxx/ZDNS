@@ -25,7 +25,8 @@ def main():
     if "url" not in df.columns or "type" not in df.columns:
         raise ValueError("Expected columns: url, type")
 
-    df["url"] = df["url"].astype(str)
+    df["url"] = df["url"].fillna("").astype(str)
+    df = df[df["url"].str.len() > 0]
     df["type"] = df["type"].astype(int)
 
     X = df["url"]
