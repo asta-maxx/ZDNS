@@ -31,7 +31,17 @@ def _fetch_block_page(path: str) -> bytes:
 
 def request(flow: http.HTTPFlow) -> None:
     host = flow.request.host
+    path = flow.request.path or "/"
     client_ip = flow.client_conn.address[0] if flow.client_conn and flow.client_conn.address else ""
+
+    if path.startswith("/static/"):
+        asset = _fetch_block_page(path)
+        flow.response = http.Response.make(
+            200,
+            asset,
+            {"Content-Type": _guess_content_type(path)},
+        )
+        return
 
     decision = _call_decision(host, client_ip)
     action = decision.get("action", "ALLOW")
@@ -54,3 +64,17 @@ def request(flow: http.HTTPFlow) -> None:
             html,
             {"Content-Type": "text/html; charset=utf-8"},
         )
+
+
+def _guess_content_type(path: str) -> str:
+    if path.endswith(".css"):
+        return "text/css; charset=utf-8"
+    if path.endswith(".js"):
+        return "application/javascript; charset=utf-8"
+    if path.endswith(".png"):
+        return "image/png"
+    if path.endswith(".jpg") or path.endswith(".jpeg"):
+        return "image/jpeg"
+    if path.endswith(".svg"):
+        return "image/svg+xml"
+    return "application/octet-stream"
