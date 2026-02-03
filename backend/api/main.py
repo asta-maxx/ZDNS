@@ -189,6 +189,7 @@ from backend.utils.events import log_event, get_events, get_db
 from backend.utils.metrics import inc, get_metrics
 from backend.utils.rules import list_rules, create_rule, update_rule, delete_rule, evaluate_domain
 from backend.utils.devices import list_devices, update_device, count_active_devices
+from backend.models.train_model import main as train_model_main
 
 @app.get("/model/status")
 def model_status():
@@ -328,6 +329,15 @@ def analytics():
         "top_domains": top_domains,
         "action_breakdown": actions
     }
+
+
+@app.post("/model/train")
+def train_model():
+    try:
+        train_model_main()
+        return {"status": "ok", "message": "Model trained and saved"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/{full_path:path}", response_class=HTMLResponse)

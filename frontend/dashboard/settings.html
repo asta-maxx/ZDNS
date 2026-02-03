@@ -228,9 +228,29 @@
                 <label class="form-label">Admin Email</label>
                 <input type="email" class="form-input" value="admin@example.com">
             </div>
-            <button class="btn">Save Changes</button>
+            <button class="btn" onclick="trainModel()">Train Model</button>
+            <span id="train-status" style="margin-left: 0.75rem; font-size: 0.875rem; color: var(--text-secondary);"></span>
         </div>
     </div>
+
+    <script>
+        async function trainModel() {
+            const statusEl = document.getElementById('train-status');
+            statusEl.textContent = 'Training...';
+            try {
+                const res = await fetch('/model/train', { method: 'POST' });
+                if (!res.ok) {
+                    const err = await res.json();
+                    statusEl.textContent = `Failed: ${err.detail || 'error'}`;
+                    return;
+                }
+                const data = await res.json();
+                statusEl.textContent = data.message || 'Done';
+            } catch (err) {
+                statusEl.textContent = 'Failed: network error';
+            }
+        }
+    </script>
 </body>
 
 </html>

@@ -70,3 +70,6 @@ htmlcov/
 node_modules/
 npm-debug.log
 yarn-error.log
+
+
+backend/models/final_up_data.csv
