@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 BLOCK_PAGES_DIR = BASE_DIR / "frontend" / "block-pages"
 DASHBOARD_DIR = BASE_DIR / "frontend" / "dashboard"
 
-app = FastAPI(title="DNS Threat Platform")
+app = FastAPI(title="ZDNS")
 
 # Point templates to frontend/block-pages
 templates = Jinja2Templates(directory=str(BLOCK_PAGES_DIR))
@@ -92,7 +92,7 @@ def root(request: Request):
     sinkhole = _render_sinkhole_for_host(request, host)
     if sinkhole is not None:
         return sinkhole
-    return {"status": "DNS Threat Platform running"}
+    return {"status": "ZDNS running"}
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request):

@@ -1,1 +1,1 @@
-"""DNS data-plane integration for the DNS Threat Platform."""
+"""DNS data-plane integration for ZDNS."""

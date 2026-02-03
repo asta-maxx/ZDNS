@@ -130,7 +130,7 @@ def run_server():
     udp_server.start_thread()
     tcp_server.start_thread()
 
-    print(f"DNS Threat server listening on {host}:{port}")
+    print(f"ZDNS server listening on {host}:{port}")
     print(f"Upstream resolver: {resolver.upstream[0]}:{resolver.upstream[1]}")
     print(f"Threat API: {resolver.api_url}")
     print("Press Ctrl+C to stop.")
