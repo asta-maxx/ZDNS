@@ -127,9 +127,14 @@
             overflow: hidden;
         }
 
+        .table-wrap {
+            overflow-x: auto;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
+            min-width: 1100px;
         }
 
         th {
@@ -153,6 +158,16 @@
 
         tr:last-child td {
             border-bottom: none;
+        }
+
+        td.pattern {
+            max-width: 520px;
+            word-break: break-all;
+        }
+
+        td.actions {
+            white-space: nowrap;
+            min-width: 210px;
         }
     </style>
 </head>
@@ -254,6 +269,7 @@
         </div>
 
         <div class="panel">
+            <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
@@ -273,17 +289,28 @@
                     </tr>
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 
     <script>
+        const API_BASE = (() => {
+            const port = window.location.port;
+            if (!port || port === '80') return '';
+            if (port === '8080') return `${window.location.protocol}//${window.location.hostname}:80`;
+            return '';
+        })();
         let cachedRules = [];
 
         async function fetchRules() {
-            const res = await fetch('/rules');
+            const tbody = document.getElementById('rules-tbody');
+            const res = await fetch(`${API_BASE}/rules`);
+            if (!res.ok) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary); padding: 2rem;">Failed to load rules.</td></tr>';
+                return;
+            }
             const rules = await res.json();
             cachedRules = rules;
-            const tbody = document.getElementById('rules-tbody');
             if (!rules || rules.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary); padding: 2rem;">No rules created.</td></tr>';
                 return;
@@ -296,12 +323,12 @@
                     <tr>
                         <td style="font-family: monospace; color: var(--cf-blue);">${idx + 1}</td>
                         <td>${rule.name}</td>
-                        <td>${rule.pattern}</td>
+                        <td class="pattern">${rule.pattern}</td>
                         <td>${rule.match_type}</td>
                         <td><span style="color: ${actionColor}; font-weight: 600;">${rule.action}</span></td>
                         <td><span style="color: ${statusColor};">${status}</span></td>
                         <td>${rule.priority}</td>
-                        <td>
+                        <td class="actions">
                             <button onclick="toggleRule(${rule.id})" style="background: ${rule.enabled ? '#fef3c7' : '#dcfce7'}; color: ${rule.enabled ? '#92400e' : '#166534'}; border: none; padding: 0.35rem 0.6rem; border-radius: 4px; cursor: pointer; margin-right: 0.4rem;">
                                 ${rule.enabled ? 'Disable' : 'Enable'}
                             </button>
@@ -332,13 +359,13 @@
                 return;
             }
             if (ruleId) {
-                await fetch(`/rules/${ruleId}`, {
+                await fetch(`${API_BASE}/rules/${ruleId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, pattern, match_type, action, enabled: true, priority: 100 })
                 });
             } else {
-                await fetch('/rules', {
+                await fetch(`${API_BASE}/rules`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name, pattern, match_type, action, enabled: true, priority: 100 })
@@ -349,7 +376,7 @@
         }
 
         async function deleteRule(id) {
-            await fetch(`/rules/${id}`, { method: 'DELETE' });
+            await fetch(`${API_BASE}/rules/${id}`, { method: 'DELETE' });
             fetchRules();
         }
 
@@ -366,7 +393,7 @@
         async function toggleRule(id) {
             const rule = cachedRules.find(r => r.id === id);
             if (!rule) return;
-            await fetch(`/rules/${id}`, {
+            await fetch(`${API_BASE}/rules/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
