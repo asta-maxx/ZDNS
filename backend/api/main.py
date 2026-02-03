@@ -25,8 +25,73 @@ app.mount(
     name="static"
 )
 
+def _render_sinkhole_for_host(request: Request, host: str):
+    domain = host.split(":")[0].lower()
+    if not domain or domain in ("localhost", "127.0.0.1"):
+        return None
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT * FROM events WHERE domain = ? ORDER BY timestamp DESC LIMIT 1",
+        (domain,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return templates.TemplateResponse(
+            "dns-error.html",
+            {
+                "request": request,
+                "domain": domain,
+                "error_code": "NO_DECISION",
+                "timestamp": current_timestamp(),
+                "ray_id": "RAY-unknown",
+                "edge_loc": "EDGE"
+            },
+            status_code=404,
+        )
+
+    action = row["action"]
+    ray_id = row["ray_id"]
+    client_ip = row["client_ip"] or request.client.host
+    if action == "BLOCK":
+        return templates.TemplateResponse(
+            "blocked.html",
+            {
+                "request": request,
+                "domain": domain,
+                "ray_id": ray_id,
+                "edge_loc": "EDGE",
+                "client_ip": client_ip,
+                "category": row["label"] or "Threat",
+                "rule_id": row["rule_id"] or "MODEL",
+                "timestamp": row["timestamp"]
+            },
+        )
+    if action == "WARN":
+        return templates.TemplateResponse(
+            "warning.html",
+            {
+                "request": request,
+                "domain": domain,
+                "category": row["label"] or "Suspicious",
+                "risk_score": row["score"],
+                "client_ip": client_ip,
+                "ray_id": ray_id,
+                "timestamp": row["timestamp"]
+            },
+        )
+    return None
+
+
 @app.get("/")
-def root():
+def root(request: Request):
+    host = request.headers.get("host", "")
+    sinkhole = _render_sinkhole_for_host(request, host)
+    if sinkhole is not None:
+        return sinkhole
     return {"status": "DNS Threat Platform running"}
 
 @app.get("/dashboard", response_class=HTMLResponse)
@@ -267,62 +332,8 @@ def sinkhole_block_page(request: Request, full_path: str):
         raise HTTPException(status_code=404, detail="Not found")
 
     host = request.headers.get("host", "")
-    domain = host.split(":")[0].lower()
-    if not domain or domain in ("localhost", "127.0.0.1"):
-        raise HTTPException(status_code=404, detail="Not found")
+    sinkhole = _render_sinkhole_for_host(request, host)
+    if sinkhole is not None:
+        return sinkhole
 
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM events WHERE domain = ? ORDER BY timestamp DESC LIMIT 1",
-        (domain,),
-    )
-    row = cursor.fetchone()
-    conn.close()
-
-    if not row:
-        return templates.TemplateResponse(
-            "dns-error.html",
-            {
-                "request": request,
-                "domain": domain,
-                "error_code": "NO_DECISION",
-                "timestamp": current_timestamp(),
-                "ray_id": "RAY-unknown",
-                "edge_loc": "EDGE"
-            },
-            status_code=404,
-        )
-
-    action = row["action"]
-    ray_id = row["ray_id"]
-    client_ip = row["client_ip"] or request.client.host
-    if action == "BLOCK":
-        return templates.TemplateResponse(
-            "blocked.html",
-            {
-                "request": request,
-                "domain": domain,
-                "ray_id": ray_id,
-                "edge_loc": "EDGE",
-                "client_ip": client_ip,
-                "category": row["label"] or "Threat",
-                "rule_id": row["rule_id"] or "MODEL",
-                "timestamp": row["timestamp"]
-            },
-        )
-    if action == "WARN":
-        return templates.TemplateResponse(
-            "warning.html",
-            {
-                "request": request,
-                "domain": domain,
-                "category": row["label"] or "Suspicious",
-                "risk_score": row["score"],
-                "client_ip": client_ip,
-                "ray_id": ray_id,
-                "timestamp": row["timestamp"]
-            },
-        )
-
-    return HTMLResponse("Allowed", status_code=200)
+    raise HTTPException(status_code=404, detail="Not found")
