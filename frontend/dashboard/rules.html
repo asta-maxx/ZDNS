@@ -248,7 +248,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Rule ID</th>
+                        <th>#</th>
                         <th>Name</th>
                         <th>Match</th>
                         <th>Type</th>
@@ -279,13 +279,13 @@
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary); padding: 2rem;">No rules created.</td></tr>';
                 return;
             }
-            tbody.innerHTML = rules.map(rule => {
+            tbody.innerHTML = rules.map((rule, idx) => {
                 const status = rule.enabled ? 'Active' : 'Disabled';
                 const statusColor = rule.enabled ? '#10b981' : '#9ca3af';
                 const actionColor = rule.action === 'BLOCK' ? '#ef4444' : rule.action === 'WARN' ? '#f59e0b' : '#10b981';
                 return `
                     <tr>
-                        <td style="font-family: monospace; color: var(--cf-blue);">${rule.id}</td>
+                        <td style="font-family: monospace; color: var(--cf-blue);">${idx + 1}</td>
                         <td>${rule.name}</td>
                         <td>${rule.pattern}</td>
                         <td>${rule.match_type}</td>
