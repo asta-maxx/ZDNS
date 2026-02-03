@@ -51,7 +51,6 @@ ENV/
 *.pt
 *.pth
 *.onnx
-backend/models/
 
 # Logs
 *.log
