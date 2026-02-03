@@ -2,7 +2,7 @@ from pathlib import Path
 import os
 
 from fastapi import FastAPI, Request, Query, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 
@@ -212,7 +212,7 @@ from backend.inference.model import infer, get_status
 from backend.utils.tracing import generate_ray_id, current_timestamp
 from backend.utils.events import log_event, get_events, get_db
 from backend.utils.metrics import inc, get_metrics
-from backend.utils.rules import list_rules, create_rule, update_rule, delete_rule, evaluate_domain
+from backend.utils.rules import list_rules, create_rule, update_rule, delete_rule, evaluate_domain, export_rpz
 from backend.utils.devices import list_devices, update_device, count_active_devices
 from backend.models.train_model import main as train_model_main
 from backend.utils.stix_store import (
@@ -326,6 +326,16 @@ def metrics():
 @app.get("/rules")
 def rules_list():
     return list_rules()
+
+@app.get("/rules/rpz", response_class=PlainTextResponse)
+def rules_rpz(
+    zone: str = "zdns.rpz",
+    sinkhole: str | None = None,
+    include_disabled: bool = False,
+):
+    sinkhole_value = sinkhole or os.getenv("ZDNS_RPZ_SINKHOLE", "sinkhole.zdns.local")
+    text = export_rpz(zone_name=zone, sinkhole=sinkhole_value, include_disabled=include_disabled)
+    return PlainTextResponse(text, media_type="text/plain")
 
 
 @app.post("/rules")

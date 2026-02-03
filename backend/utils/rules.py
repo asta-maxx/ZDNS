@@ -94,6 +94,71 @@ def list_rules() -> List[Dict]:
     return rules
 
 
+def export_rpz(
+    zone_name: str,
+    sinkhole: Optional[str] = None,
+    include_disabled: bool = False,
+) -> str:
+    """
+    Build a minimal RPZ (Response Policy Zone) file from rules.
+    - EXACT: direct owner name
+    - SUFFIX: wildcard + apex
+    - REGEX: not supported by RPZ (skipped)
+    """
+    zone = zone_name.rstrip(".") + "."
+    now = datetime.utcnow()
+    serial = now.strftime("%Y%m%d%H")
+
+    lines: List[str] = []
+    lines.append(f"$TTL 60")
+    lines.append(f"@ IN SOA localhost. hostmaster.{zone} {serial} 60 60 60 60")
+    lines.append(f"@ IN NS localhost.")
+
+    if not sinkhole:
+        sinkhole = "sinkhole.zdns.local."
+    if not sinkhole.endswith("."):
+        sinkhole = sinkhole + "."
+
+    for rule in list_rules():
+        if not include_disabled and not rule.get("enabled", True):
+            continue
+        action = (rule.get("action") or "").upper()
+        match_type = (rule.get("match_type") or "").upper()
+        pattern = (rule.get("pattern") or "").strip().lower().rstrip(".")
+        if not pattern:
+            continue
+        if match_type == "REGEX":
+            continue
+
+        owners: List[str] = []
+        if match_type == "EXACT":
+            owners = [pattern]
+        elif match_type == "SUFFIX":
+            owners = [pattern, f"*.{pattern}"]
+        else:
+            owners = [pattern]
+
+        # RPZ action mapping
+        if action == "BLOCK":
+            target = "."
+        elif action == "WARN":
+            target = sinkhole
+        else:
+            # ALLOW or unknown: passthru
+            target = "rpz-passthru."
+
+        for owner in owners:
+            if owner.startswith("*."):
+                if not _is_valid_hostname(owner[2:]):
+                    continue
+            else:
+                if not _is_valid_hostname(owner):
+                    continue
+            lines.append(f"{owner} CNAME {target}")
+
+    return "\n".join(lines) + "\n"
+
+
 def create_rule(data: Dict) -> Dict:
     conn = get_db()
     cursor = conn.cursor()
@@ -183,6 +248,22 @@ def delete_rule(rule_id: int) -> bool:
 
 def _normalize_domain(domain: str) -> str:
     return domain.lower().rstrip(".")
+
+
+def _is_valid_hostname(name: str) -> bool:
+    if not name or len(name) > 255:
+        return False
+    if "://" in name or "/" in name or "@" in name:
+        return False
+    labels = name.split(".")
+    for label in labels:
+        if not label or len(label) > 63:
+            return False
+        if label.startswith("-") or label.endswith("-"):
+            return False
+        if not re.fullmatch(r"[a-z0-9-]+", label):
+            return False
+    return True
 
 
 def _match_rule(domain: str, rule: Dict) -> bool:
