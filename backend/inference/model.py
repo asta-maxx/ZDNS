@@ -62,6 +62,8 @@ class ModelWrapper:
                         malicious_index = i
                         break
             
+            # If model is a bare classifier (no vectorizer), it expects 2D features.
+            # The recommended fix is to retrain a Pipeline using backend/models/train_model.py.
             probs = MODEL.predict_proba([domain])[0]
             score = float(probs[malicious_index])
             
