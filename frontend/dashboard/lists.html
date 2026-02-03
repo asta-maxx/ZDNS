@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Security Rules | ZDNS</title>
+    <title>Whitelist & Blacklist | ZDNS</title>
     <link rel="icon" href="/assets/ZDNS.png">
     <style>
         :root {
@@ -16,6 +16,7 @@
             --text-primary: #1f2937;
             --text-secondary: #6b7280;
             --text-tertiary: #9ca3af;
+            --success: #10b981;
         }
 
         * {
@@ -128,14 +129,80 @@
             overflow: hidden;
         }
 
-        .table-wrap {
-            overflow-x: auto;
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            padding: 1rem 1.5rem 1.5rem 1.5rem;
+        }
+
+        .status-card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .status-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .status-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-top: 0.3rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr 1.8fr 0.8fr auto;
+            gap: 0.75rem;
+            padding: 1.5rem;
+        }
+
+        input, select {
+            padding: 0.55rem 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 6px;
+            padding: 0.55rem 0.9rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn.primary {
+            background: var(--cf-blue);
+            color: white;
+        }
+
+        .btn.secondary {
+            background: #f3f4f6;
+            color: #111827;
+            border: 1px solid var(--border-color);
+        }
+
+        .btn.success {
+            background: var(--success);
+            color: white;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 1100px;
         }
 
         th {
@@ -161,14 +228,13 @@
             border-bottom: none;
         }
 
-        td.pattern {
+        td.url {
             max-width: 520px;
             word-break: break-all;
         }
 
         td.actions {
             white-space: nowrap;
-            min-width: 210px;
         }
     </style>
 </head>
@@ -199,7 +265,7 @@
                 </svg>
                 DNS Analytics
             </a>
-            <a href="/dashboard/rules" class="nav-item active">
+            <a href="/dashboard/rules" class="nav-item">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
@@ -214,7 +280,7 @@
                 </svg>
                 Threat Intel
             </a>
-            <a href="/dashboard/lists" class="nav-item">
+            <a href="/dashboard/lists" class="nav-item active">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
                 </svg>
@@ -235,8 +301,8 @@
     <div class="main-content">
         <div class="top-bar">
             <div class="page-title">
-                <h1>Security Rules</h1>
-                <div class="breadcrumbs">Home / Security / <strong>Rules</strong></div>
+                <h1>Whitelist & Blacklist</h1>
+                <div class="breadcrumbs">Home / Intelligence / <strong>Lists</strong></div>
             </div>
             <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; font-weight: 500;">
                 <div
@@ -246,55 +312,68 @@
             </div>
         </div>
 
-        <div class="panel" style="margin-bottom: 2rem; padding: 1.5rem;">
-            <div style="font-weight: 600; margin-bottom: 1rem;">Create Rule</div>
-            <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem;">
-                <input id="rule-id" type="hidden" />
-                <input id="rule-name" placeholder="Rule name" style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;" />
-                <input id="rule-pattern" placeholder="Pattern (e.g. bad.com or ^.*\\.ru$)" style="grid-column: span 2; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;" />
-                <select id="rule-type" style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;">
-                    <option value="EXACT">EXACT</option>
-                    <option value="SUFFIX">SUFFIX</option>
-                    <option value="REGEX">REGEX</option>
+        <div class="panel" style="margin-bottom: 1.5rem;">
+            <div class="panel-header">
+                <span>List Status</span>
+                <button class="btn success" onclick="pullAll()">Pull Now</button>
+            </div>
+            <div class="status-grid">
+                <div class="status-card">
+                    <div class="status-label">Total Sources</div>
+                    <div class="status-value" id="status-total">0</div>
+                </div>
+                <div class="status-card">
+                    <div class="status-label">Last Updated</div>
+                    <div class="status-value" id="status-last">—</div>
+                </div>
+                <div class="status-card">
+                    <div class="status-label">Last Imported</div>
+                    <div class="status-value" id="status-imported">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel" style="margin-bottom: 2rem;">
+            <div class="panel-header">Add List Source</div>
+            <div class="form-grid">
+                <input id="list-id" type="hidden" />
+                <input id="list-name" placeholder="Source name" />
+                <select id="list-type">
+                    <option value="whitelist">Whitelist</option>
+                    <option value="blacklist">Blacklist</option>
                 </select>
-                <select id="rule-action" style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;">
-                    <option value="ALLOW">ALLOW</option>
-                    <option value="WARN">WARN</option>
-                    <option value="BLOCK">BLOCK</option>
+                <input id="list-url" placeholder="https://example.com/list.txt" />
+                <select id="list-enabled">
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
                 </select>
                 <div style="display:flex; gap:0.5rem;">
-                    <button onclick="createOrUpdateRule()" style="background: var(--cf-blue); color: white; border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer;">
-                        Save
-                    </button>
-                    <button onclick="resetForm()" style="background: #f3f4f6; color: #111827; border: 1px solid var(--border-color); border-radius: 4px; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer;">
-                        Clear
-                    </button>
+                    <button class="btn primary" onclick="createOrUpdate()">Save</button>
+                    <button class="btn secondary" onclick="resetForm()">Clear</button>
                 </div>
             </div>
         </div>
 
         <div class="panel">
-            <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
                         <th>#</th>
                         <th>Name</th>
-                        <th>Match</th>
                         <th>Type</th>
-                        <th>Action</th>
-                        <th>Status</th>
-                        <th>Priority</th>
+                        <th>URL</th>
+                        <th>Enabled</th>
+                        <th>Last Fetched</th>
+                        <th>Imported</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody id="rules-tbody">
+                <tbody id="lists-tbody">
                     <tr>
-                        <td colspan="8" style="text-align: center; color: var(--text-tertiary); padding: 2rem;">Loading rules...</td>
+                        <td colspan="8" style="text-align:center; color: var(--text-tertiary); padding: 2rem;">Loading...</td>
                     </tr>
                 </tbody>
             </table>
-            </div>
         </div>
     </div>
 
@@ -305,115 +384,123 @@
             if (port === '8080') return `${window.location.protocol}//${window.location.hostname}:80`;
             return '';
         })();
-        let cachedRules = [];
 
-        async function fetchRules() {
-            const tbody = document.getElementById('rules-tbody');
-            const res = await fetch(`${API_BASE}/rules`);
-            if (!res.ok) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary); padding: 2rem;">Failed to load rules.</td></tr>';
+        let cachedSources = [];
+
+        async function loadStatus() {
+            const res = await fetch(`${API_BASE}/lists/status`);
+            if (!res.ok) return;
+            const data = await res.json();
+            document.getElementById('status-total').textContent = data.total_sources || 0;
+            document.getElementById('status-last').textContent = data.last_fetched || '—';
+            document.getElementById('status-imported').textContent = data.last_imported || 0;
+        }
+
+        async function loadSources() {
+            const res = await fetch(`${API_BASE}/lists`);
+            const sources = await res.json();
+            cachedSources = sources;
+            const tbody = document.getElementById('lists-tbody');
+            if (!sources || sources.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color: var(--text-secondary); padding: 2rem;">No sources added.</td></tr>';
                 return;
             }
-            const rules = await res.json();
-            cachedRules = rules;
-            if (!rules || rules.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary); padding: 2rem;">No rules created.</td></tr>';
-                return;
-            }
-            tbody.innerHTML = rules.map((rule, idx) => {
-                const status = rule.enabled ? 'Active' : 'Disabled';
-                const statusColor = rule.enabled ? '#10b981' : '#9ca3af';
-                const actionColor = rule.action === 'BLOCK' ? '#ef4444' : rule.action === 'WARN' ? '#f59e0b' : '#10b981';
-                return `
-                    <tr>
-                        <td style="font-family: monospace; color: var(--cf-blue);">${idx + 1}</td>
-                        <td>${rule.name}</td>
-                        <td class="pattern">${rule.pattern}</td>
-                        <td>${rule.match_type}</td>
-                        <td><span style="color: ${actionColor}; font-weight: 600;">${rule.action}</span></td>
-                        <td><span style="color: ${statusColor};">${status}</span></td>
-                        <td>${rule.priority}</td>
-                        <td class="actions">
-                            <button onclick="toggleRule(${rule.id})" style="background: ${rule.enabled ? '#fef3c7' : '#dcfce7'}; color: ${rule.enabled ? '#92400e' : '#166534'}; border: none; padding: 0.35rem 0.6rem; border-radius: 4px; cursor: pointer; margin-right: 0.4rem;">
-                                ${rule.enabled ? 'Disable' : 'Enable'}
-                            </button>
-                            <button onclick="editRule(${rule.id})" style="background: #e0f2fe; color: #0369a1; border: none; padding: 0.35rem 0.6rem; border-radius: 4px; cursor: pointer; margin-right: 0.4rem;">Edit</button>
-                            <button onclick="deleteRule(${rule.id})" style="background: #fee2e2; color: #b91c1c; border: none; padding: 0.35rem 0.6rem; border-radius: 4px; cursor: pointer;">Delete</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+            tbody.innerHTML = sources.map((src, idx) => `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td>${src.name || '—'}</td>
+                    <td>${src.list_type}</td>
+                    <td class="url">${src.url}</td>
+                    <td>${src.enabled ? 'Yes' : 'No'}</td>
+                    <td>${src.last_fetched || '—'}</td>
+                    <td>${src.last_imported || 0}</td>
+                    <td class="actions">
+                        <button class="btn secondary" onclick="editSource(${src.id})">Edit</button>
+                        <button class="btn secondary" onclick="toggleSource(${src.id})">${src.enabled ? 'Disable' : 'Enable'}</button>
+                        <button class="btn secondary" onclick="deleteSource(${src.id})">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
         }
 
         function resetForm() {
-            document.getElementById('rule-id').value = '';
-            document.getElementById('rule-name').value = '';
-            document.getElementById('rule-pattern').value = '';
-            document.getElementById('rule-type').value = 'EXACT';
-            document.getElementById('rule-action').value = 'ALLOW';
+            document.getElementById('list-id').value = '';
+            document.getElementById('list-name').value = '';
+            document.getElementById('list-type').value = 'whitelist';
+            document.getElementById('list-url').value = '';
+            document.getElementById('list-enabled').value = 'true';
         }
 
-        async function createOrUpdateRule() {
-            const name = document.getElementById('rule-name').value.trim();
-            const pattern = document.getElementById('rule-pattern').value.trim();
-            const match_type = document.getElementById('rule-type').value;
-            const action = document.getElementById('rule-action').value;
-            const ruleId = document.getElementById('rule-id').value;
-            if (!name || !pattern) {
-                alert('Name and pattern are required.');
+        async function createOrUpdate() {
+            const id = document.getElementById('list-id').value;
+            const name = document.getElementById('list-name').value.trim();
+            const list_type = document.getElementById('list-type').value;
+            const url = document.getElementById('list-url').value.trim();
+            const enabled = document.getElementById('list-enabled').value === 'true';
+            if (!name || !url) {
+                alert('Name and URL are required.');
                 return;
             }
-            if (ruleId) {
-                await fetch(`${API_BASE}/rules/${ruleId}`, {
+            const payload = { name, list_type, url, enabled };
+            if (id) {
+                await fetch(`${API_BASE}/lists/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, pattern, match_type, action, enabled: true, priority: 100 })
+                    body: JSON.stringify(payload)
                 });
             } else {
-                await fetch(`${API_BASE}/rules`, {
+                await fetch(`${API_BASE}/lists`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, pattern, match_type, action, enabled: true, priority: 100 })
+                    body: JSON.stringify(payload)
                 });
             }
             resetForm();
-            fetchRules();
+            await loadSources();
+            await loadStatus();
         }
 
-        async function deleteRule(id) {
-            await fetch(`${API_BASE}/rules/${id}`, { method: 'DELETE' });
-            fetchRules();
+        async function deleteSource(id) {
+            await fetch(`${API_BASE}/lists/${id}`, { method: 'DELETE' });
+            await loadSources();
+            await loadStatus();
         }
 
-        async function editRule(id) {
-            const rule = cachedRules.find(r => r.id === id);
-            if (!rule) return;
-            document.getElementById('rule-id').value = rule.id;
-            document.getElementById('rule-name').value = rule.name;
-            document.getElementById('rule-pattern').value = rule.pattern;
-            document.getElementById('rule-type').value = rule.match_type;
-            document.getElementById('rule-action').value = rule.action;
+        function editSource(id) {
+            const src = cachedSources.find(s => s.id === id);
+            if (!src) return;
+            document.getElementById('list-id').value = src.id;
+            document.getElementById('list-name').value = src.name || '';
+            document.getElementById('list-type').value = src.list_type;
+            document.getElementById('list-url').value = src.url;
+            document.getElementById('list-enabled').value = src.enabled ? 'true' : 'false';
         }
 
-        async function toggleRule(id) {
-            const rule = cachedRules.find(r => r.id === id);
-            if (!rule) return;
-            await fetch(`${API_BASE}/rules/${id}`, {
+        async function toggleSource(id) {
+            const src = cachedSources.find(s => s.id === id);
+            if (!src) return;
+            await fetch(`${API_BASE}/lists/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    name: rule.name,
-                    pattern: rule.pattern,
-                    match_type: rule.match_type,
-                    action: rule.action,
-                    enabled: !rule.enabled,
-                    priority: rule.priority
+                    name: src.name,
+                    list_type: src.list_type,
+                    url: src.url,
+                    enabled: !src.enabled
                 })
             });
-            fetchRules();
+            await loadSources();
+            await loadStatus();
         }
 
-        fetchRules();
+        async function pullAll() {
+            await fetch(`${API_BASE}/lists/pull`, { method: 'POST' });
+            await loadSources();
+            await loadStatus();
+        }
+
+        loadStatus();
+        loadSources();
     </script>
 </body>
 

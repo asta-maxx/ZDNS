@@ -25,6 +25,12 @@ app.mount(
     StaticFiles(directory=str(BLOCK_PAGES_DIR / "static")),
     name="static"
 )
+# Serve frontend assets (logo, favicon)
+app.mount(
+    "/assets",
+    StaticFiles(directory=str(BASE_DIR / "frontend")),
+    name="assets"
+)
 
 def _start_auto_sync():
     interval = int(os.getenv("ZDNS_STIX_SYNC_INTERVAL_MIN", "0"))
@@ -131,6 +137,10 @@ def dashboard_analytics(request: Request):
 def dashboard_rules(request: Request):
     return dashboard_templates.TemplateResponse("rules.html", {"request": request})
 
+@app.get("/dashboard/lists", response_class=HTMLResponse)
+def dashboard_lists(request: Request):
+    return dashboard_templates.TemplateResponse("lists.html", {"request": request})
+
 @app.get("/dashboard/settings", response_class=HTMLResponse)
 def dashboard_settings(request: Request):
     return dashboard_templates.TemplateResponse("settings.html", {"request": request})
@@ -225,6 +235,14 @@ from backend.utils.stix_store import (
 )
 from backend.utils.taxii_client import pull_taxii_objects
 from backend.utils.threat_feeds import pull_otx_domains, pull_misp_domains
+from backend.utils.list_sources import (
+    list_sources as list_list_sources,
+    create_source as create_list_source,
+    update_source as update_list_source,
+    delete_source as delete_list_source,
+    pull_all_sources,
+    list_status as list_sources_status,
+)
 from backend.utils.rules import upsert_rule_by_pattern
 
 @app.get("/model/status")
@@ -336,6 +354,40 @@ def rules_rpz(
     sinkhole_value = sinkhole or os.getenv("ZDNS_RPZ_SINKHOLE", "sinkhole.zdns.local")
     text = export_rpz(zone_name=zone, sinkhole=sinkhole_value, include_disabled=include_disabled)
     return PlainTextResponse(text, media_type="text/plain")
+
+
+@app.get("/lists")
+def lists_sources():
+    return list_list_sources()
+
+
+@app.post("/lists")
+def lists_create(data: dict):
+    required = ["name", "list_type", "url"]
+    for field in required:
+        if not data.get(field):
+            raise HTTPException(status_code=400, detail=f"{field} is required")
+    return create_list_source(data)
+
+
+@app.put("/lists/{source_id}")
+def lists_update(source_id: int, data: dict):
+    return update_list_source(source_id, data)
+
+
+@app.delete("/lists/{source_id}")
+def lists_delete(source_id: int):
+    return {"deleted": delete_list_source(source_id)}
+
+
+@app.post("/lists/pull")
+def lists_pull():
+    return pull_all_sources()
+
+
+@app.get("/lists/status")
+def lists_status():
+    return list_sources_status()
 
 
 @app.post("/rules")
