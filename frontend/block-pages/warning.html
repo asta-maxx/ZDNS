@@ -39,6 +39,20 @@
                     <div class="details-label">Client IP</div>
                     <div class="details-value">{{ client_ip }}</div>
                 </div>
+                <div class="details-row">
+                    <div class="details-label">Decision Source</div>
+                    <div class="details-value">
+                        {% if decision_source == 'admin' %}
+                            Warning by Admin Policy
+                        {% elif decision_source == 'model' %}
+                            Warning by ML Model
+                        {% elif decision_source == 'heuristic' or decision_source == 'heuristic_fallback' %}
+                            Warning by Heuristic
+                        {% else %}
+                            Warning by Security Engine
+                        {% endif %}
+                    </div>
+                </div>
             </div>
 
             <div class="btn-group">

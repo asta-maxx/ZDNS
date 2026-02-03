@@ -475,12 +475,13 @@
                         <th>Domain</th>
                         <th>Threat Score / Confidence</th>
                         <th style="width: 150px;">Action</th>
+                        <th style="width: 160px;">Source</th>
                         <th style="width: 200px;">Time (UTC)</th>
                     </tr>
                 </thead>
                 <tbody id="events-tbody">
                     <tr>
-                        <td colspan="5" style="text-align: center; color: var(--text-tertiary); padding: 3rem;">Loading
+                        <td colspan="6" style="text-align: center; color: var(--text-tertiary); padding: 3rem;">Loading
                             stream data...</td>
                     </tr>
                 </tbody>
@@ -587,7 +588,7 @@
                 const tbody = document.getElementById('events-tbody');
 
                 if (events.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary); padding: 2rem;">No events recorded in this session.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 2rem;">No events recorded in this session.</td></tr>';
                     return;
                 }
 
@@ -599,6 +600,7 @@
                     if (event.score >= 0.6) scoreColor = '#f59e0b';
                     if (event.score >= 0.9) scoreColor = '#ef4444';
 
+                    const sourceLabel = event.source === 'admin' ? 'Admin' : event.source === 'model' ? 'ML Model' : event.source === 'heuristic' || event.source === 'heuristic_fallback' ? 'Heuristic' : (event.source || 'Unknown');
                     return `
                         <tr>
                             <td class="mono-text">${event.ray_id}</td>
@@ -610,6 +612,7 @@
                                 <span class="score-val">${event.score.toFixed(2)}</span>
                             </td>
                             <td><span class="badge ${event.action}">${event.action}</span></td>
+                            <td>${sourceLabel}</td>
                             <td style="color: var(--text-secondary); font-size: 0.8125rem;">${new Date(event.timestamp).toLocaleString()}</td>
                         </tr>
                     `;

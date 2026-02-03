@@ -43,6 +43,20 @@
                     <div class="details-label">Rule ID</div>
                     <div class="details-value">{{ rule_id }}</div>
                 </div>
+                <div class="details-row">
+                    <div class="details-label">Decision Source</div>
+                    <div class="details-value">
+                        {% if decision_source == 'admin' %}
+                            Blocked by Admin Policy
+                        {% elif decision_source == 'model' %}
+                            Blocked by ML Model
+                        {% elif decision_source == 'heuristic' or decision_source == 'heuristic_fallback' %}
+                            Blocked by Heuristic
+                        {% else %}
+                            Blocked by Security Engine
+                        {% endif %}
+                    </div>
+                </div>
             </div>
 
             <div class="ray-id-footer">

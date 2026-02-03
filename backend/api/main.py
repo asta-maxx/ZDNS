@@ -56,6 +56,8 @@ def _render_sinkhole_for_host(request: Request, host: str):
     action = row["action"]
     ray_id = row["ray_id"]
     client_ip = row["client_ip"] or request.client.host
+    decision_source = row["source"] or "unknown"
+    decision_label = row["label"] or "Threat"
     if action == "BLOCK":
         return templates.TemplateResponse(
             "blocked.html",
@@ -65,8 +67,9 @@ def _render_sinkhole_for_host(request: Request, host: str):
                 "ray_id": ray_id,
                 "edge_loc": "EDGE",
                 "client_ip": client_ip,
-                "category": row["label"] or "Threat",
+                "category": decision_label,
                 "rule_id": row["rule_id"] or "MODEL",
+                "decision_source": decision_source,
                 "timestamp": row["timestamp"]
             },
         )
@@ -76,10 +79,11 @@ def _render_sinkhole_for_host(request: Request, host: str):
             {
                 "request": request,
                 "domain": domain,
-                "category": row["label"] or "Suspicious",
+                "category": decision_label if decision_label else "Suspicious",
                 "risk_score": row["score"],
                 "client_ip": client_ip,
                 "ray_id": ray_id,
+                "decision_source": decision_source,
                 "timestamp": row["timestamp"]
             },
         )
@@ -203,9 +207,9 @@ def dns_query(data: dict):
     rule = evaluate_domain(domain)
     if rule:
         result = {
-            "label": "RULE_MATCH",
+            "label": "ADMIN_RULE",
             "score": 1.0 if rule["action"] == "BLOCK" else 0.7 if rule["action"] == "WARN" else 0.0,
-            "source": "rule",
+            "source": "admin",
         }
         action = rule["action"]
     else:
