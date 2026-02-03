@@ -220,6 +220,7 @@
         <div class="panel" style="margin-bottom: 2rem; padding: 1.5rem;">
             <div style="font-weight: 600; margin-bottom: 1rem;">Create Rule</div>
             <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem;">
+                <input id="rule-id" type="hidden" />
                 <input id="rule-name" placeholder="Rule name" style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;" />
                 <input id="rule-pattern" placeholder="Pattern (e.g. bad.com or ^.*\\.ru$)" style="grid-column: span 2; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;" />
                 <select id="rule-type" style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;">
@@ -232,9 +233,14 @@
                     <option value="WARN">WARN</option>
                     <option value="BLOCK">BLOCK</option>
                 </select>
-                <button onclick="createRule()" style="background: var(--cf-blue); color: white; border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer;">
-                    Add Rule
-                </button>
+                <div style="display:flex; gap:0.5rem;">
+                    <button onclick="createOrUpdateRule()" style="background: var(--cf-blue); color: white; border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer;">
+                        Save
+                    </button>
+                    <button onclick="resetForm()" style="background: #f3f4f6; color: #111827; border: 1px solid var(--border-color); border-radius: 4px; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer;">
+                        Clear
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -283,34 +289,65 @@
                         <td><span style="color: ${actionColor}; font-weight: 600;">${rule.action}</span></td>
                         <td><span style="color: ${statusColor};">${status}</span></td>
                         <td>${rule.priority}</td>
-                        <td><button onclick="deleteRule(${rule.id})" style="background: #fee2e2; color: #b91c1c; border: none; padding: 0.35rem 0.6rem; border-radius: 4px; cursor: pointer;">Delete</button></td>
+                        <td>
+                            <button onclick="editRule(${rule.id})" style="background: #e0f2fe; color: #0369a1; border: none; padding: 0.35rem 0.6rem; border-radius: 4px; cursor: pointer; margin-right: 0.4rem;">Edit</button>
+                            <button onclick="deleteRule(${rule.id})" style="background: #fee2e2; color: #b91c1c; border: none; padding: 0.35rem 0.6rem; border-radius: 4px; cursor: pointer;">Delete</button>
+                        </td>
                     </tr>
                 `;
             }).join('');
         }
 
-        async function createRule() {
+        function resetForm() {
+            document.getElementById('rule-id').value = '';
+            document.getElementById('rule-name').value = '';
+            document.getElementById('rule-pattern').value = '';
+            document.getElementById('rule-type').value = 'EXACT';
+            document.getElementById('rule-action').value = 'ALLOW';
+        }
+
+        async function createOrUpdateRule() {
             const name = document.getElementById('rule-name').value.trim();
             const pattern = document.getElementById('rule-pattern').value.trim();
             const match_type = document.getElementById('rule-type').value;
             const action = document.getElementById('rule-action').value;
+            const ruleId = document.getElementById('rule-id').value;
             if (!name || !pattern) {
                 alert('Name and pattern are required.');
                 return;
             }
-            await fetch('/rules', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, pattern, match_type, action, enabled: true, priority: 100 })
-            });
-            document.getElementById('rule-name').value = '';
-            document.getElementById('rule-pattern').value = '';
+            if (ruleId) {
+                await fetch(`/rules/${ruleId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, pattern, match_type, action, enabled: true, priority: 100 })
+                });
+            } else {
+                await fetch('/rules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, pattern, match_type, action, enabled: true, priority: 100 })
+                });
+            }
+            resetForm();
             fetchRules();
         }
 
         async function deleteRule(id) {
             await fetch(`/rules/${id}`, { method: 'DELETE' });
             fetchRules();
+        }
+
+        async function editRule(id) {
+            const res = await fetch('/rules');
+            const rules = await res.json();
+            const rule = rules.find(r => r.id === id);
+            if (!rule) return;
+            document.getElementById('rule-id').value = rule.id;
+            document.getElementById('rule-name').value = rule.name;
+            document.getElementById('rule-pattern').value = rule.pattern;
+            document.getElementById('rule-type').value = rule.match_type;
+            document.getElementById('rule-action').value = rule.action;
         }
 
         fetchRules();
