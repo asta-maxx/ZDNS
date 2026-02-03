@@ -201,8 +201,10 @@ from backend.utils.stix_store import (
     add_objects,
     get_objects,
     get_manifest,
+    list_indicator_patterns,
 )
 from backend.utils.taxii_client import pull_taxii_objects
+from backend.utils.rules import upsert_rule_by_pattern
 
 @app.get("/model/status")
 def model_status():
@@ -223,7 +225,7 @@ def dns_query(data: dict):
         result = {
             "label": "ADMIN_RULE",
             "score": 1.0 if rule["action"] == "BLOCK" else 0.7 if rule["action"] == "WARN" else 0.0,
-            "source": "admin",
+            "source": "threat_intel" if rule.get("source") == "threat_intel" else "admin",
         }
         action = rule["action"]
     else:
@@ -446,6 +448,38 @@ def taxii_pull(request: Request, data: dict):
 def stix_objects(limit: int = 200):
     objects = get_objects("zdns-threat-intel", limit=limit)
     return {"objects": objects}
+
+
+@app.post("/stix/sync")
+def stix_sync(request: Request):
+    _require_taxii_key(request)
+    indicators = list_indicator_patterns("zdns-threat-intel")
+    synced = 0
+    for indicator in indicators:
+        pattern = indicator.get("pattern", "")
+        if "domain-name:value" not in pattern:
+            continue
+        # Extract domain inside quotes
+        try:
+            domain = pattern.split("domain-name:value")[1].split("'")[1]
+        except Exception:
+            continue
+        name = indicator.get("name") or "STIX Indicator"
+        valid_until = indicator.get("valid_until") or indicator.get("expiration")
+        rule = {
+            "name": name,
+            "pattern": domain,
+            "match_type": "EXACT",
+            "action": "BLOCK",
+            "enabled": True,
+            "priority": 50,
+            "notes": "STIX Indicator",
+            "source": "threat_intel",
+            "expires_at": valid_until,
+        }
+        upsert_rule_by_pattern(rule)
+        synced += 1
+    return {"synced": synced}
 
 
 @app.get("/{full_path:path}", response_class=HTMLResponse)

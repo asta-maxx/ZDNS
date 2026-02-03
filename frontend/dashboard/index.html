@@ -609,7 +609,7 @@
                     if (event.score >= 0.6) scoreColor = '#f59e0b';
                     if (event.score >= 0.9) scoreColor = '#ef4444';
 
-                    const sourceLabel = event.source === 'admin' ? 'Admin' : event.source === 'model' ? 'ML Model' : event.source === 'heuristic' || event.source === 'heuristic_fallback' ? 'Heuristic' : (event.source || 'Unknown');
+                    const sourceLabel = event.source === 'admin' ? 'Admin' : event.source === 'model' ? 'ML Model' : event.source === 'threat_intel' ? 'Threat Intel' : event.source === 'heuristic' || event.source === 'heuristic_fallback' ? 'Heuristic' : (event.source || 'Unknown');
                     return `
                         <tr>
                             <td class="mono-text">${event.ray_id}</td>

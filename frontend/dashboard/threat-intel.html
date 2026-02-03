@@ -222,6 +222,7 @@
                 <input id="taxii-collection" placeholder="Collection ID" />
                 <input id="taxii-key" placeholder="API Key" />
                 <button class="btn" onclick="pullFeed()">Pull Feed</button>
+                <button class="btn" onclick="syncIndicators()">Sync Indicators</button>
                 <span id="pull-status" style="align-self:center; color: var(--text-secondary);"></span>
             </div>
         </div>
@@ -287,6 +288,27 @@
             }
             status.textContent = 'Pulled.';
             loadObjects();
+        }
+
+        async function syncIndicators() {
+            const api_key = document.getElementById('taxii-key').value.trim();
+            const status = document.getElementById('pull-status');
+            if (!api_key) {
+                status.textContent = 'API key required.';
+                return;
+            }
+            status.textContent = 'Syncing indicators...';
+            const res = await fetch('/stix/sync', {
+                method: 'POST',
+                headers: { 'X-API-Key': api_key }
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                status.textContent = `Failed: ${err.detail || 'error'}`;
+                return;
+            }
+            const data = await res.json();
+            status.textContent = `Synced ${data.synced} indicators.`;
         }
 
         loadObjects();

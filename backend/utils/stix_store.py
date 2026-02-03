@@ -154,6 +154,25 @@ def add_objects(collection_id: str, objects: List[Dict]) -> Dict:
     return {"added": added}
 
 
+def list_indicator_patterns(collection_id: str) -> List[Dict]:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT object_json FROM stix_objects
+        WHERE collection_id = ? AND type = 'indicator'
+        """,
+        (collection_id,),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    patterns = []
+    for row in rows:
+        obj = json.loads(row["object_json"])
+        patterns.append(obj)
+    return patterns
+
+
 def get_objects(collection_id: str, limit: int = 500, after: Optional[str] = None) -> List[Dict]:
     conn = get_db()
     cursor = conn.cursor()
