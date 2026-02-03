@@ -173,6 +173,21 @@ def list_indicator_patterns(collection_id: str) -> List[Dict]:
     return patterns
 
 
+def build_domain_indicator(domain: str, source: str = "feed") -> Dict:
+    now = _now()
+    safe_domain = domain.strip().lower()
+    return {
+        "type": "indicator",
+        "spec_version": "2.1",
+        "id": f"indicator--{safe_domain}",
+        "created": now,
+        "modified": now,
+        "name": f"{source} indicator for {safe_domain}",
+        "pattern": f"[domain-name:value = '{safe_domain}']",
+        "pattern_type": "stix",
+    }
+
+
 def get_objects(collection_id: str, limit: int = 500, after: Optional[str] = None) -> List[Dict]:
     conn = get_db()
     cursor = conn.cursor()

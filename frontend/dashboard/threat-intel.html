@@ -228,6 +228,18 @@
         </div>
 
         <div class="panel">
+            <div class="form-row">
+                <input id="otx-key" placeholder="OTX API Key" />
+                <input id="misp-url" placeholder="MISP Base URL (https://misp.example)" />
+                <input id="misp-key" placeholder="MISP API Key" />
+                <input id="feed-key" placeholder="ZDNS API Key" />
+                <button class="btn" onclick="pullOtx()">Pull OTX</button>
+                <button class="btn" onclick="pullMisp()">Pull MISP</button>
+                <span id="feed-status" style="align-self:center; color: var(--text-secondary);"></span>
+            </div>
+        </div>
+
+        <div class="panel">
             <table>
                 <thead>
                     <tr>
@@ -244,11 +256,19 @@
                 </tbody>
             </table>
         </div>
+
+        <div style="margin-top: 1rem; color: var(--text-secondary); font-size: 0.875rem;">
+            <label>
+                <input type="checkbox" id="only-indicators" onchange="loadObjects()" />
+                Show only indicators
+            </label>
+        </div>
     </div>
 
     <script>
         async function loadObjects() {
-            const res = await fetch('/stix/objects');
+            const onlyIndicators = document.getElementById('only-indicators')?.checked ? 'true' : 'false';
+            const res = await fetch(`/stix/objects?only_indicators=${onlyIndicators}`);
             const data = await res.json();
             const tbody = document.getElementById('stix-tbody');
             if (!data.objects || data.objects.length === 0) {
@@ -309,6 +329,53 @@
             }
             const data = await res.json();
             status.textContent = `Synced ${data.synced} indicators.`;
+        }
+
+        async function pullOtx() {
+            const apiKey = document.getElementById('otx-key').value.trim();
+            const zdnsKey = document.getElementById('feed-key').value.trim();
+            const status = document.getElementById('feed-status');
+            if (!apiKey || !zdnsKey) {
+                status.textContent = 'OTX key + ZDNS key required.';
+                return;
+            }
+            status.textContent = 'Pulling OTX...';
+            const res = await fetch('/feeds/otx/pull', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-API-Key': zdnsKey },
+                body: JSON.stringify({ api_key: apiKey, limit: 1000 })
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                status.textContent = `Failed: ${err.detail || 'error'}`;
+                return;
+            }
+            status.textContent = 'OTX pulled + synced.';
+            loadObjects();
+        }
+
+        async function pullMisp() {
+            const baseUrl = document.getElementById('misp-url').value.trim();
+            const apiKey = document.getElementById('misp-key').value.trim();
+            const zdnsKey = document.getElementById('feed-key').value.trim();
+            const status = document.getElementById('feed-status');
+            if (!baseUrl || !apiKey || !zdnsKey) {
+                status.textContent = 'MISP URL + key + ZDNS key required.';
+                return;
+            }
+            status.textContent = 'Pulling MISP...';
+            const res = await fetch('/feeds/misp/pull', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-API-Key': zdnsKey },
+                body: JSON.stringify({ base_url: baseUrl, api_key: apiKey, limit: 1000 })
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                status.textContent = `Failed: ${err.detail || 'error'}`;
+                return;
+            }
+            status.textContent = 'MISP pulled + synced.';
+            loadObjects();
         }
 
         loadObjects();

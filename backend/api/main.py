@@ -26,6 +26,26 @@ app.mount(
     name="static"
 )
 
+def _start_auto_sync():
+    interval = int(os.getenv("ZDNS_STIX_SYNC_INTERVAL_MIN", "0"))
+    if interval <= 0:
+        return
+
+    def loop():
+        while True:
+            try:
+                _sync_indicators()
+            except Exception:
+                pass
+            time.sleep(interval * 60)
+
+    thread = threading.Thread(target=loop, daemon=True)
+    thread.start()
+
+@app.on_event("startup")
+def on_startup():
+    _start_auto_sync()
+
 def _render_sinkhole_for_host(request: Request, host: str):
     domain = host.split(":")[0].lower()
     if not domain or domain in ("localhost", "127.0.0.1"):
@@ -204,6 +224,7 @@ from backend.utils.stix_store import (
     list_indicator_patterns,
 )
 from backend.utils.taxii_client import pull_taxii_objects
+from backend.utils.threat_feeds import pull_otx_domains, pull_misp_domains
 from backend.utils.rules import upsert_rule_by_pattern
 
 @app.get("/model/status")
@@ -445,21 +466,20 @@ def taxii_pull(request: Request, data: dict):
 
 
 @app.get("/stix/objects")
-def stix_objects(limit: int = 200):
+def stix_objects(limit: int = 200, only_indicators: bool = False):
     objects = get_objects("zdns-threat-intel", limit=limit)
+    if only_indicators:
+        objects = [o for o in objects if o.get("type") == "indicator"]
     return {"objects": objects}
 
 
-@app.post("/stix/sync")
-def stix_sync(request: Request):
-    _require_taxii_key(request)
+def _sync_indicators() -> int:
     indicators = list_indicator_patterns("zdns-threat-intel")
     synced = 0
     for indicator in indicators:
         pattern = indicator.get("pattern", "")
         if "domain-name:value" not in pattern:
             continue
-        # Extract domain inside quotes
         try:
             domain = pattern.split("domain-name:value")[1].split("'")[1]
         except Exception:
@@ -479,7 +499,38 @@ def stix_sync(request: Request):
         }
         upsert_rule_by_pattern(rule)
         synced += 1
-    return {"synced": synced}
+    return synced
+
+
+@app.post("/stix/sync")
+def stix_sync(request: Request):
+    _require_taxii_key(request)
+    return {"synced": _sync_indicators()}
+
+
+@app.post("/feeds/otx/pull")
+def otx_pull(request: Request, data: dict):
+    _require_taxii_key(request)
+    api_key = data.get("api_key")
+    limit = int(data.get("limit", 1000))
+    if not api_key:
+        raise HTTPException(status_code=400, detail="api_key required")
+    result = pull_otx_domains(api_key, limit=limit)
+    synced = _sync_indicators()
+    return {"imported": result.get("added"), "synced": synced}
+
+
+@app.post("/feeds/misp/pull")
+def misp_pull(request: Request, data: dict):
+    _require_taxii_key(request)
+    base_url = data.get("base_url")
+    api_key = data.get("api_key")
+    limit = int(data.get("limit", 1000))
+    if not base_url or not api_key:
+        raise HTTPException(status_code=400, detail="base_url and api_key required")
+    result = pull_misp_domains(base_url, api_key, limit=limit)
+    synced = _sync_indicators()
+    return {"imported": result.get("added"), "synced": synced}
 
 
 @app.get("/{full_path:path}", response_class=HTMLResponse)
@@ -493,3 +544,5 @@ def sinkhole_block_page(request: Request, full_path: str):
         return sinkhole
 
     raise HTTPException(status_code=404, detail="Not found")
+import threading
+import time
