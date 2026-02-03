@@ -38,7 +38,15 @@ def main():
 
     pipeline = Pipeline(
         steps=[
-            ("tfidf", TfidfVectorizer(analyzer="char", ngram_range=(3, 5))),
+            (
+                "tfidf",
+                TfidfVectorizer(
+                    analyzer="char",
+                    ngram_range=(3, 4),
+                    min_df=2,
+                    max_features=50000,
+                ),
+            ),
             ("nb", MultinomialNB()),
         ]
     )

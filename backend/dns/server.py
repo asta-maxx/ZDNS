@@ -78,10 +78,11 @@ class ThreatResolver(BaseResolver):
 
     def _sinkhole_reply(self, request: DNSRecord, qtype: str) -> DNSRecord:
         reply = request.reply()
+        ttl = int(os.getenv("DNS_SINKHOLE_TTL", "1"))
         if qtype in ("A", "ANY"):
-            reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(self.sinkhole_ipv4), ttl=30))
+            reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(self.sinkhole_ipv4), ttl=ttl))
         if qtype in ("AAAA", "ANY"):
-            reply.add_answer(RR(request.q.qname, QTYPE.AAAA, rdata=AAAA(self.sinkhole_ipv6), ttl=30))
+            reply.add_answer(RR(request.q.qname, QTYPE.AAAA, rdata=AAAA(self.sinkhole_ipv6), ttl=ttl))
         if qtype not in ("A", "AAAA", "ANY"):
             reply.header.rcode = RCODE.NOERROR
         return reply
