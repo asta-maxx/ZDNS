@@ -1,11 +1,14 @@
 import os
-from datetime import datetime
+import time
+from urllib.parse import parse_qs, urlparse
 
 import requests
 from mitmproxy import http
 
 API_BASE = os.getenv("DNS_THREAT_API_BASE", "http://127.0.0.1")
 API_PORT = os.getenv("DNS_THREAT_API_PORT", "80")
+PROCEED_TTL_SECONDS = int(os.getenv("ZDNS_PROCEED_TTL", "300"))
+_proceed_cache = {}
 
 
 def _call_decision(host: str, client_ip: str) -> dict:
@@ -33,6 +36,12 @@ def request(flow: http.HTTPFlow) -> None:
     host = flow.request.host
     path = flow.request.path or "/"
     client_ip = flow.client_conn.address[0] if flow.client_conn and flow.client_conn.address else ""
+
+    if _is_proceed_request(host, flow.request.url):
+        return
+
+    if _is_in_proceed_cache(host):
+        return
 
     if path.startswith("/static/"):
         asset = _fetch_block_page(path)
@@ -64,6 +73,7 @@ def request(flow: http.HTTPFlow) -> None:
             html,
             {"Content-Type": "text/html; charset=utf-8"},
         )
+        return
 
 
 def _guess_content_type(path: str) -> str:
@@ -78,3 +88,25 @@ def _guess_content_type(path: str) -> str:
     if path.endswith(".svg"):
         return "image/svg+xml"
     return "application/octet-stream"
+
+
+def _is_proceed_request(host: str, url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+        query = parse_qs(parsed.query or "")
+        if query.get("zdns_proceed", ["0"])[0] == "1":
+            _proceed_cache[host] = time.time() + PROCEED_TTL_SECONDS
+            return True
+    except Exception:
+        return False
+    return False
+
+
+def _is_in_proceed_cache(host: str) -> bool:
+    expires_at = _proceed_cache.get(host)
+    if not expires_at:
+        return False
+    if time.time() > expires_at:
+        _proceed_cache.pop(host, None)
+        return False
+    return True

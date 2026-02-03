@@ -268,9 +268,12 @@
     </div>
 
     <script>
+        let cachedRules = [];
+
         async function fetchRules() {
             const res = await fetch('/rules');
             const rules = await res.json();
+            cachedRules = rules;
             const tbody = document.getElementById('rules-tbody');
             if (!rules || rules.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary); padding: 2rem;">No rules created.</td></tr>';
@@ -290,6 +293,9 @@
                         <td><span style="color: ${statusColor};">${status}</span></td>
                         <td>${rule.priority}</td>
                         <td>
+                            <button onclick="toggleRule(${rule.id})" style="background: ${rule.enabled ? '#fef3c7' : '#dcfce7'}; color: ${rule.enabled ? '#92400e' : '#166534'}; border: none; padding: 0.35rem 0.6rem; border-radius: 4px; cursor: pointer; margin-right: 0.4rem;">
+                                ${rule.enabled ? 'Disable' : 'Enable'}
+                            </button>
                             <button onclick="editRule(${rule.id})" style="background: #e0f2fe; color: #0369a1; border: none; padding: 0.35rem 0.6rem; border-radius: 4px; cursor: pointer; margin-right: 0.4rem;">Edit</button>
                             <button onclick="deleteRule(${rule.id})" style="background: #fee2e2; color: #b91c1c; border: none; padding: 0.35rem 0.6rem; border-radius: 4px; cursor: pointer;">Delete</button>
                         </td>
@@ -339,15 +345,31 @@
         }
 
         async function editRule(id) {
-            const res = await fetch('/rules');
-            const rules = await res.json();
-            const rule = rules.find(r => r.id === id);
+            const rule = cachedRules.find(r => r.id === id);
             if (!rule) return;
             document.getElementById('rule-id').value = rule.id;
             document.getElementById('rule-name').value = rule.name;
             document.getElementById('rule-pattern').value = rule.pattern;
             document.getElementById('rule-type').value = rule.match_type;
             document.getElementById('rule-action').value = rule.action;
+        }
+
+        async function toggleRule(id) {
+            const rule = cachedRules.find(r => r.id === id);
+            if (!rule) return;
+            await fetch(`/rules/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: rule.name,
+                    pattern: rule.pattern,
+                    match_type: rule.match_type,
+                    action: rule.action,
+                    enabled: !rule.enabled,
+                    priority: rule.priority
+                })
+            });
+            fetchRules();
         }
 
         fetchRules();

@@ -56,8 +56,8 @@
             </div>
 
             <div class="btn-group">
-                <button class="btn" onclick="window.history.back()">Go Back (Recommended)</button>
-                <a class="btn btn-secondary" href="http://{{ domain }}" rel="noreferrer noopener">Proceed to {{ domain }}</a>
+                <button class="btn" onclick="goBack()">Go Back (Recommended)</button>
+                <a class="btn btn-secondary" href="https://{{ domain }}?zdns_proceed=1" rel="noreferrer noopener">Proceed to {{ domain }}</a>
             </div>
 
             <div class="ray-id-footer">
@@ -69,6 +69,20 @@
     <div class="footer-brand">
         Performance & Security by <strong>ZDNS</strong>
     </div>
+
+    <script>
+        function goBack() {
+            if (document.referrer) {
+                window.location.href = document.referrer;
+                return;
+            }
+            if (window.history.length > 1) {
+                window.history.back();
+                return;
+            }
+            window.location.href = "about:blank";
+        }
+    </script>
 </body>
 
 </html>
