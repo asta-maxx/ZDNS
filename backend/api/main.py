@@ -116,8 +116,10 @@ def maintenance(request: Request):
 
 from backend.inference.model import infer, get_status
 from backend.utils.tracing import generate_ray_id, current_timestamp
-from backend.utils.events import log_event, get_events
+from backend.utils.events import log_event, get_events, get_db
 from backend.utils.metrics import inc, get_metrics
+from backend.utils.rules import list_rules, create_rule, update_rule, delete_rule, evaluate_domain
+from backend.utils.devices import list_devices, update_device, count_active_devices
 
 @app.get("/model/status")
 def model_status():
@@ -128,23 +130,50 @@ def dns_query(data: dict):
     domain = data.get("domain")
     if not domain:
         raise HTTPException(status_code=400, detail="domain is required")
+    client_ip = data.get("client_ip")
+    qtype = data.get("qtype")
     ray_id = generate_ray_id()
     timestamp = current_timestamp()
 
-    result = infer(domain)
+    rule = evaluate_domain(domain)
+    if rule:
+        result = {
+            "label": "RULE_MATCH",
+            "score": 1.0 if rule["action"] == "BLOCK" else 0.7 if rule["action"] == "WARN" else 0.0,
+            "source": "rule",
+        }
+        action = rule["action"]
+    else:
+        result = infer(domain)
+        action = None
     inc("total_queries")
 
-    if result["score"] >= 0.9:
+    if action is None and result["score"] >= 0.9:
         action = "BLOCK"
         inc("blocked")
-        log_event({
-            "ray_id": ray_id,
-            "domain": domain,
-            "score": result["score"],
-            "action": action,
-            "timestamp": timestamp,
-            "source": result.get("source", "baseline")
-        })
+    elif action is None and result["score"] >= 0.6:
+        action = "WARN"
+        inc("warnings")
+    elif action is None:
+        action = "ALLOW"
+        inc("allowed")
+
+    update_device(client_ip, action)
+
+    log_event({
+        "ray_id": ray_id,
+        "domain": domain,
+        "score": result["score"],
+        "action": action,
+        "timestamp": timestamp,
+        "source": result.get("source", "baseline"),
+        "client_ip": client_ip,
+        "rule_id": rule["id"] if rule else None,
+        "rule_action": rule["action"] if rule else None,
+        "label": result.get("label"),
+        "qtype": qtype,
+    })
+    if action == "BLOCK":
         return {
             "action": action,
             "ray_id": ray_id,
@@ -155,17 +184,7 @@ def dns_query(data: dict):
             "redirect": f"/block/malicious?domain={domain}&ray_id={ray_id}"
         }
 
-    if result["score"] >= 0.6:
-        action = "WARN"
-        inc("warnings")
-        log_event({
-            "ray_id": ray_id,
-            "domain": domain,
-            "score": result["score"],
-            "action": action,
-            "timestamp": timestamp,
-            "source": result.get("source", "baseline")
-        })
+    if action == "WARN":
         return {
             "action": action,
             "ray_id": ray_id,
@@ -176,16 +195,6 @@ def dns_query(data: dict):
             "redirect": f"/block/warning?domain={domain}&ray_id={ray_id}"
         }
 
-    action = "ALLOW"
-    inc("allowed")
-    log_event({
-        "ray_id": ray_id,
-        "domain": domain,
-        "score": result["score"],
-        "action": action,
-        "timestamp": timestamp,
-        "source": result.get("source", "baseline")
-    })
     return {
         "action": action,
         "ray_id": ray_id,
@@ -203,4 +212,117 @@ def events():
 
 @app.get("/metrics")
 def metrics():
-    return get_metrics()
+    data = dict(get_metrics())
+    data["active_devices"] = count_active_devices()
+    return data
+
+
+@app.get("/rules")
+def rules_list():
+    return list_rules()
+
+
+@app.post("/rules")
+def rules_create(data: dict):
+    required = ["name", "pattern", "match_type", "action"]
+    for field in required:
+        if not data.get(field):
+            raise HTTPException(status_code=400, detail=f"{field} is required")
+    return create_rule(data)
+
+
+@app.put("/rules/{rule_id}")
+def rules_update(rule_id: int, data: dict):
+    return update_rule(rule_id, data)
+
+
+@app.delete("/rules/{rule_id}")
+def rules_delete(rule_id: int):
+    return {"deleted": delete_rule(rule_id)}
+
+
+@app.get("/devices")
+def devices_list():
+    return list_devices()
+
+
+@app.get("/analytics")
+def analytics():
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT domain, COUNT(*) as total FROM events GROUP BY domain ORDER BY total DESC LIMIT 10")
+    top_domains = [{"domain": row["domain"], "count": row["total"]} for row in cursor.fetchall()]
+    cursor.execute("SELECT action, COUNT(*) as total FROM events GROUP BY action")
+    actions = {row["action"]: row["total"] for row in cursor.fetchall()}
+    conn.close()
+    return {
+        "top_domains": top_domains,
+        "action_breakdown": actions
+    }
+
+
+@app.get("/{full_path:path}", response_class=HTMLResponse)
+def sinkhole_block_page(request: Request, full_path: str):
+    if full_path.startswith(("dashboard", "block", "static", "metrics", "events", "rules", "devices", "analytics", "model")):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    host = request.headers.get("host", "")
+    domain = host.split(":")[0].lower()
+    if not domain or domain in ("localhost", "127.0.0.1"):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT * FROM events WHERE domain = ? ORDER BY timestamp DESC LIMIT 1",
+        (domain,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return templates.TemplateResponse(
+            "dns-error.html",
+            {
+                "request": request,
+                "domain": domain,
+                "error_code": "NO_DECISION",
+                "timestamp": current_timestamp(),
+                "ray_id": "RAY-unknown",
+                "edge_loc": "EDGE"
+            },
+            status_code=404,
+        )
+
+    action = row["action"]
+    ray_id = row["ray_id"]
+    client_ip = row["client_ip"] or request.client.host
+    if action == "BLOCK":
+        return templates.TemplateResponse(
+            "blocked.html",
+            {
+                "request": request,
+                "domain": domain,
+                "ray_id": ray_id,
+                "edge_loc": "EDGE",
+                "client_ip": client_ip,
+                "category": row["label"] or "Threat",
+                "rule_id": row["rule_id"] or "MODEL",
+                "timestamp": row["timestamp"]
+            },
+        )
+    if action == "WARN":
+        return templates.TemplateResponse(
+            "warning.html",
+            {
+                "request": request,
+                "domain": domain,
+                "category": row["label"] or "Suspicious",
+                "risk_score": row["score"],
+                "client_ip": client_ip,
+                "ray_id": ray_id,
+                "timestamp": row["timestamp"]
+            },
+        )
+
+    return HTMLResponse("Allowed", status_code=200)

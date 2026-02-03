@@ -217,36 +217,104 @@
             </div>
         </div>
 
+        <div class="panel" style="margin-bottom: 2rem; padding: 1.5rem;">
+            <div style="font-weight: 600; margin-bottom: 1rem;">Create Rule</div>
+            <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 1rem;">
+                <input id="rule-name" placeholder="Rule name" style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;" />
+                <input id="rule-pattern" placeholder="Pattern (e.g. bad.com or ^.*\\.ru$)" style="grid-column: span 2; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;" />
+                <select id="rule-type" style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                    <option value="EXACT">EXACT</option>
+                    <option value="SUFFIX">SUFFIX</option>
+                    <option value="REGEX">REGEX</option>
+                </select>
+                <select id="rule-action" style="padding: 0.5rem; border: 1px solid var(--border-color); border-radius: 4px;">
+                    <option value="ALLOW">ALLOW</option>
+                    <option value="WARN">WARN</option>
+                    <option value="BLOCK">BLOCK</option>
+                </select>
+                <button onclick="createRule()" style="background: var(--cf-blue); color: white; border: none; border-radius: 4px; padding: 0.5rem 1rem; font-weight: 600; cursor: pointer;">
+                    Add Rule
+                </button>
+            </div>
+        </div>
+
         <div class="panel">
             <table>
                 <thead>
                     <tr>
                         <th>Rule ID</th>
                         <th>Name</th>
+                        <th>Match</th>
                         <th>Type</th>
                         <th>Action</th>
                         <th>Status</th>
+                        <th>Priority</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="rules-tbody">
                     <tr>
-                        <td style="font-family: monospace; color: var(--cf-blue);">DGA-TCN-009</td>
-                        <td>DGA Malware Detection</td>
-                        <td>Heuristic</td>
-                        <td><span style="color: #ef4444; font-weight: 600;">BLOCK</span></td>
-                        <td><span style="color: #10b981;">Active</span></td>
-                    </tr>
-                    <tr>
-                        <td style="font-family: monospace; color: var(--cf-blue);">ENTROPY-02</td>
-                        <td>Unusual Domain Entropy</td>
-                        <td>Statistical</td>
-                        <td><span style="color: #f59e0b; font-weight: 600;">WARN</span></td>
-                        <td><span style="color: #10b981;">Active</span></td>
+                        <td colspan="8" style="text-align: center; color: var(--text-tertiary); padding: 2rem;">Loading rules...</td>
                     </tr>
                 </tbody>
             </table>
         </div>
     </div>
+
+    <script>
+        async function fetchRules() {
+            const res = await fetch('/rules');
+            const rules = await res.json();
+            const tbody = document.getElementById('rules-tbody');
+            if (!rules || rules.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-secondary); padding: 2rem;">No rules created.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = rules.map(rule => {
+                const status = rule.enabled ? 'Active' : 'Disabled';
+                const statusColor = rule.enabled ? '#10b981' : '#9ca3af';
+                const actionColor = rule.action === 'BLOCK' ? '#ef4444' : rule.action === 'WARN' ? '#f59e0b' : '#10b981';
+                return `
+                    <tr>
+                        <td style="font-family: monospace; color: var(--cf-blue);">${rule.id}</td>
+                        <td>${rule.name}</td>
+                        <td>${rule.pattern}</td>
+                        <td>${rule.match_type}</td>
+                        <td><span style="color: ${actionColor}; font-weight: 600;">${rule.action}</span></td>
+                        <td><span style="color: ${statusColor};">${status}</span></td>
+                        <td>${rule.priority}</td>
+                        <td><button onclick="deleteRule(${rule.id})" style="background: #fee2e2; color: #b91c1c; border: none; padding: 0.35rem 0.6rem; border-radius: 4px; cursor: pointer;">Delete</button></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function createRule() {
+            const name = document.getElementById('rule-name').value.trim();
+            const pattern = document.getElementById('rule-pattern').value.trim();
+            const match_type = document.getElementById('rule-type').value;
+            const action = document.getElementById('rule-action').value;
+            if (!name || !pattern) {
+                alert('Name and pattern are required.');
+                return;
+            }
+            await fetch('/rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, pattern, match_type, action, enabled: true, priority: 100 })
+            });
+            document.getElementById('rule-name').value = '';
+            document.getElementById('rule-pattern').value = '';
+            fetchRules();
+        }
+
+        async function deleteRule(id) {
+            await fetch(`/rules/${id}`, { method: 'DELETE' });
+            fetchRules();
+        }
+
+        fetchRules();
+    </script>
 </body>
 
 </html>

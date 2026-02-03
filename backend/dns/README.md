@@ -16,6 +16,6 @@ Behavior:
 - WARN: DNS_WARN_MODE=ALLOW (default), SINKHOLE, or NXDOMAIN
 - Fail-open: DNS_FAIL_OPEN=true (default); set false to fail-closed
 
-Sinkhole IPs:
-- DNS_SINKHOLE_IPV4=0.0.0.0
-- DNS_SINKHOLE_IPV6=::
+To show the HTML block pages, set the sinkhole IP to your API host:
+- DNS_SINKHOLE_IPV4=<API_HOST_IP>
+- DNS_SINKHOLE_IPV6=::<or set a valid IPv6>

@@ -25,13 +25,37 @@ def init_db():
                 action TEXT,
                 timestamp TEXT,
                 source TEXT,
+                client_ip TEXT,
+                rule_id INTEGER,
+                rule_action TEXT,
+                label TEXT,
+                qtype TEXT,
                 raw_data TEXT
             )
         ''')
+        _ensure_columns(cursor)
         conn.commit()
         conn.close()
     except Exception as e:
         print(f"DB Init Error: {e}")
+
+# Ensure older DBs get new columns without losing data
+def _ensure_columns(cursor):
+    try:
+        cursor.execute("PRAGMA table_info(events)")
+        existing = {row[1] for row in cursor.fetchall()}
+        columns = {
+            "client_ip": "TEXT",
+            "rule_id": "INTEGER",
+            "rule_action": "TEXT",
+            "label": "TEXT",
+            "qtype": "TEXT",
+        }
+        for name, col_type in columns.items():
+            if name not in existing:
+                cursor.execute(f"ALTER TABLE events ADD COLUMN {name} {col_type}")
+    except Exception as e:
+        print(f"DB Column Ensure Error: {e}")
 
 # Initialize on module import
 init_db()
@@ -45,8 +69,8 @@ def log_event(event: dict):
         raw_data = json.dumps(event)
         
         cursor.execute('''
-            INSERT INTO events (ray_id, domain, score, action, timestamp, source, raw_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO events (ray_id, domain, score, action, timestamp, source, client_ip, rule_id, rule_action, label, qtype, raw_data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             event.get("ray_id"),
             event.get("domain"),
@@ -54,6 +78,11 @@ def log_event(event: dict):
             event.get("action"),
             event.get("timestamp"),
             event.get("source", "unknown"),
+            event.get("client_ip"),
+            event.get("rule_id"),
+            event.get("rule_action"),
+            event.get("label"),
+            event.get("qtype"),
             raw_data
         ))
         conn.commit()
@@ -76,7 +105,12 @@ def get_events(limit=100):
                 "score": row["score"],
                 "action": row["action"],
                 "timestamp": row["timestamp"],
-                "source": row["source"]
+                "source": row["source"],
+                "client_ip": row["client_ip"],
+                "rule_id": row["rule_id"],
+                "rule_action": row["rule_action"],
+                "label": row["label"],
+                "qtype": row["qtype"]
             })
         conn.close()
     except Exception as e:

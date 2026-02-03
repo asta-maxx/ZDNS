@@ -486,6 +486,36 @@
                 </tbody>
             </table>
         </div>
+
+        <div class="panel" style="margin-top: 2rem;">
+            <div class="panel-header">
+                <div class="panel-title">Connected Devices</div>
+                <button class="refresh-btn" onclick="fetchData()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M23 4v6h-6" />
+                        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                    </svg>
+                    <span>Refresh Data</span>
+                </button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 200px;">IP Address</th>
+                        <th>Hostname</th>
+                        <th style="width: 120px;">Queries</th>
+                        <th style="width: 120px;">Blocked</th>
+                        <th style="width: 120px;">Warned</th>
+                        <th style="width: 180px;">Last Seen (UTC)</th>
+                    </tr>
+                </thead>
+                <tbody id="devices-tbody">
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: var(--text-tertiary); padding: 2rem;">No devices yet.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <script>
@@ -584,6 +614,26 @@
                         </tr>
                     `;
                 }).join('');
+
+                const devicesRes = await fetch('/devices');
+                const devices = await devicesRes.json();
+                const devicesTbody = document.getElementById('devices-tbody');
+                if (!devices || devices.length === 0) {
+                    devicesTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 2rem;">No devices detected yet.</td></tr>';
+                } else {
+                    devicesTbody.innerHTML = devices.map(device => {
+                        return `
+                            <tr>
+                                <td class="mono-text">${device.ip}</td>
+                                <td>${device.hostname || '—'}</td>
+                                <td>${device.query_count}</td>
+                                <td style="color: var(--status-blocked-text); font-weight: 600;">${device.blocked_count}</td>
+                                <td style="color: var(--status-warning-text); font-weight: 600;">${device.warn_count}</td>
+                                <td style="color: var(--text-secondary); font-size: 0.8125rem;">${new Date(device.last_seen).toLocaleString()}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
 
             } catch (error) {
                 console.error('Error fetching data:', error);
