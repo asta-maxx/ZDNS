@@ -1,4 +1,4 @@
-backend/models/final_up_data.csv
+backend/models/*.csv
 # Python
 __pycache__/
 *.py[cod]
