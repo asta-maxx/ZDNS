@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings | ZDNS</title>
+    <title>Threat Intel | ZDNS</title>
     <style>
         :root {
             --cf-orange: #f48120;
@@ -124,24 +124,46 @@
             background: var(--bg-surface);
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            padding: 2rem;
-            max-width: 600px;
+            overflow: hidden;
+            margin-bottom: 2rem;
         }
 
-        .form-group {
-            margin-bottom: 1.5rem;
+        table {
+            width: 100%;
+            border-collapse: collapse;
         }
 
-        .form-label {
-            display: block;
+        th {
+            text-align: left;
+            padding: 0.875rem 1.5rem;
+            background-color: #f9fafb;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
             font-size: 0.875rem;
-            font-weight: 500;
-            margin-bottom: 0.5rem;
             color: var(--text-primary);
         }
 
-        .form-input {
-            width: 100%;
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            padding: 1.5rem;
+        }
+
+        .form-row input {
             padding: 0.5rem;
             border: 1px solid var(--border-color);
             border-radius: 4px;
@@ -154,7 +176,7 @@
             padding: 0.5rem 1rem;
             border-radius: 4px;
             cursor: pointer;
-            font-weight: 500;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -170,55 +192,20 @@
             <div class="logo-text">ZDNS</div>
         </div>
         <div class="nav-links">
-            <a href="/dashboard" class="nav-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="3" width="7" height="7" />
-                    <rect x="14" y="3" width="7" height="7" />
-                    <rect x="14" y="14" width="7" height="7" />
-                    <rect x="3" y="14" width="7" height="7" />
-                </svg>
-                Overview
-            </a>
-            <a href="/dashboard/analytics" class="nav-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
-                    <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
-                    <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
-                </svg>
-                DNS Analytics
-            </a>
-            <a href="/dashboard/rules" class="nav-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
-                Security Rules
-            </a>
-            <a href="/dashboard/threat-intel" class="nav-item">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 3h18v6H3z" />
-                    <path d="M3 9h18v12H3z" />
-                    <path d="M7 13h4" />
-                    <path d="M7 17h10" />
-                </svg>
-                Threat Intel
-            </a>
+            <a href="/dashboard" class="nav-item">Overview</a>
+            <a href="/dashboard/analytics" class="nav-item">DNS Analytics</a>
+            <a href="/dashboard/rules" class="nav-item">Security Rules</a>
+            <a href="/dashboard/threat-intel" class="nav-item active">Threat Intel</a>
             <div style="height: 1px; background: var(--border-color); margin: 0.75rem 0;"></div>
-            <a href="/dashboard/settings" class="nav-item active">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="3" />
-                    <path
-                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                </svg>
-                Settings
-            </a>
+            <a href="/dashboard/settings" class="nav-item">Settings</a>
         </div>
     </div>
 
     <div class="main-content">
         <div class="top-bar">
             <div class="page-title">
-                <h1>Settings</h1>
-                <div class="breadcrumbs">Home / <strong>Settings</strong></div>
+                <h1>Threat Intelligence</h1>
+                <div class="breadcrumbs">Home / Intelligence / <strong>STIX</strong></div>
             </div>
             <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; font-weight: 500;">
                 <div
@@ -229,36 +216,80 @@
         </div>
 
         <div class="panel">
-            <div class="form-group">
-                <label class="form-label">Platform Name</label>
-                <input type="text" class="form-input" value="ZDNS">
+            <div class="form-row">
+                <input id="taxii-url" placeholder="TAXII Discovery URL" />
+                <input id="taxii-api-root" placeholder="API Root (optional)" />
+                <input id="taxii-collection" placeholder="Collection ID" />
+                <input id="taxii-key" placeholder="API Key" />
+                <button class="btn" onclick="pullFeed()">Pull Feed</button>
+                <span id="pull-status" style="align-self:center; color: var(--text-secondary);"></span>
             </div>
-            <div class="form-group">
-                <label class="form-label">Admin Email</label>
-                <input type="email" class="form-input" value="admin@example.com">
-            </div>
-            <button class="btn" onclick="trainModel()">Train Model</button>
-            <span id="train-status" style="margin-left: 0.75rem; font-size: 0.875rem; color: var(--text-secondary);"></span>
+        </div>
+
+        <div class="panel">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>ID</th>
+                        <th>Created</th>
+                        <th>Modified</th>
+                    </tr>
+                </thead>
+                <tbody id="stix-tbody">
+                    <tr>
+                        <td colspan="4" style="text-align:center; color: var(--text-tertiary); padding: 2rem;">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 
     <script>
-        async function trainModel() {
-            const statusEl = document.getElementById('train-status');
-            statusEl.textContent = 'Training...';
-            try {
-                const res = await fetch('/model/train', { method: 'POST' });
-                if (!res.ok) {
-                    const err = await res.json();
-                    statusEl.textContent = `Failed: ${err.detail || 'error'}`;
-                    return;
-                }
-                const data = await res.json();
-                statusEl.textContent = data.message || 'Done';
-            } catch (err) {
-                statusEl.textContent = 'Failed: network error';
+        async function loadObjects() {
+            const res = await fetch('/stix/objects');
+            const data = await res.json();
+            const tbody = document.getElementById('stix-tbody');
+            if (!data.objects || data.objects.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--text-secondary); padding: 2rem;">No objects found.</td></tr>';
+                return;
             }
+            tbody.innerHTML = data.objects.map(obj => `
+                <tr>
+                    <td>${obj.type || '—'}</td>
+                    <td style="font-family: monospace; color: var(--cf-blue);">${obj.id || '—'}</td>
+                    <td>${obj.created || '—'}</td>
+                    <td>${obj.modified || '—'}</td>
+                </tr>
+            `).join('');
         }
+
+        async function pullFeed() {
+            const url = document.getElementById('taxii-url').value.trim();
+            const api_root = document.getElementById('taxii-api-root').value.trim();
+            const collection_id = document.getElementById('taxii-collection').value.trim();
+            const api_key = document.getElementById('taxii-key').value.trim();
+            const status = document.getElementById('pull-status');
+            if (!url || !collection_id || !api_key) {
+                status.textContent = 'URL, Collection, and API key are required.';
+                return;
+            }
+            status.textContent = 'Pulling...';
+            const res = await fetch('/taxii2/pull', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-API-Key': api_key },
+                body: JSON.stringify({ url, api_root: api_root || null, collection_id })
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                status.textContent = `Failed: ${err.detail || 'error'}`;
+                return;
+            }
+            status.textContent = 'Pulled.';
+            loadObjects();
+        }
+
+        loadObjects();
     </script>
 </body>
 

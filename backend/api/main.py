@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 from fastapi import FastAPI, Request, Query, HTTPException
 from fastapi.responses import HTMLResponse
@@ -114,6 +115,10 @@ def dashboard_rules(request: Request):
 def dashboard_settings(request: Request):
     return dashboard_templates.TemplateResponse("settings.html", {"request": request})
 
+@app.get("/dashboard/threat-intel", response_class=HTMLResponse)
+def dashboard_threat_intel(request: Request):
+    return dashboard_templates.TemplateResponse("threat-intel.html", {"request": request})
+
 @app.get("/block/malicious", response_class=HTMLResponse)
 def block_malicious(
     request: Request,
@@ -197,6 +202,7 @@ from backend.utils.stix_store import (
     get_objects,
     get_manifest,
 )
+from backend.utils.taxii_client import pull_taxii_objects
 
 @app.get("/model/status")
 def model_status():
@@ -346,10 +352,17 @@ def train_model():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def _require_taxii_key(request: Request):
+    expected = os.getenv("ZDNS_TAXII_API_KEY", "zdns-dev-key")
+    provided = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
+    if not provided or provided != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
 
 # TAXII 2.1 (minimal server)
 @app.get("/taxii2")
 def taxii_discovery(request: Request):
+    _require_taxii_key(request)
     base = str(request.base_url).rstrip("/")
     return {
         "title": "ZDNS TAXII 2.1",
@@ -360,7 +373,8 @@ def taxii_discovery(request: Request):
 
 
 @app.get("/taxii2/api1")
-def taxii_api_root():
+def taxii_api_root(request: Request):
+    _require_taxii_key(request)
     return {
         "title": "ZDNS API Root",
         "versions": ["taxii-2.1"],
@@ -369,12 +383,14 @@ def taxii_api_root():
 
 
 @app.get("/taxii2/api1/collections")
-def taxii_collections():
+def taxii_collections(request: Request):
+    _require_taxii_key(request)
     return {"collections": list_collections()}
 
 
 @app.get("/taxii2/api1/collections/{collection_id}")
-def taxii_collection(collection_id: str):
+def taxii_collection(request: Request, collection_id: str):
+    _require_taxii_key(request)
     col = get_collection(collection_id)
     if not col:
         raise HTTPException(status_code=404, detail="Collection not found")
@@ -382,18 +398,21 @@ def taxii_collection(collection_id: str):
 
 
 @app.get("/taxii2/api1/collections/{collection_id}/manifest")
-def taxii_manifest(collection_id: str):
+def taxii_manifest(request: Request, collection_id: str):
+    _require_taxii_key(request)
     return {"objects": get_manifest(collection_id)}
 
 
 @app.get("/taxii2/api1/collections/{collection_id}/objects")
-def taxii_objects(collection_id: str, added_after: str | None = None, limit: int = 500):
+def taxii_objects(request: Request, collection_id: str, added_after: str | None = None, limit: int = 500):
+    _require_taxii_key(request)
     objects = get_objects(collection_id, limit=limit, after=added_after)
     return {"objects": objects}
 
 
 @app.post("/taxii2/api1/collections/{collection_id}/objects")
-def taxii_add_objects(collection_id: str, data: dict):
+def taxii_add_objects(request: Request, collection_id: str, data: dict):
+    _require_taxii_key(request)
     objects = data.get("objects", [])
     if not isinstance(objects, list):
         raise HTTPException(status_code=400, detail="objects must be a list")
@@ -401,12 +420,32 @@ def taxii_add_objects(collection_id: str, data: dict):
 
 
 @app.post("/taxii2/import")
-def taxii_import_bundle(data: dict):
+def taxii_import_bundle(request: Request, data: dict):
+    _require_taxii_key(request)
     collection_id = data.get("collection_id", "zdns-threat-intel")
     if data.get("type") != "bundle":
         raise HTTPException(status_code=400, detail="Expected STIX bundle")
     objects = data.get("objects", [])
     return add_objects(collection_id, objects)
+
+
+@app.post("/taxii2/pull")
+def taxii_pull(request: Request, data: dict):
+    _require_taxii_key(request)
+    url = data.get("url")
+    api_root = data.get("api_root")
+    collection_id = data.get("collection_id")
+    headers = data.get("headers") or {}
+    added_after = data.get("added_after")
+    if not url or not collection_id:
+        raise HTTPException(status_code=400, detail="url and collection_id are required")
+    return pull_taxii_objects(url, api_root, collection_id, added_after=added_after, headers=headers)
+
+
+@app.get("/stix/objects")
+def stix_objects(limit: int = 200):
+    objects = get_objects("zdns-threat-intel", limit=limit)
+    return {"objects": objects}
 
 
 @app.get("/{full_path:path}", response_class=HTMLResponse)
