@@ -18,6 +18,21 @@ def get_db():
     return conn
 
 
+def _ensure_columns(cursor):
+    try:
+        cursor.execute("PRAGMA table_info(rules)")
+        existing = {row[1] for row in cursor.fetchall()}
+        columns = {
+            "source": "TEXT",
+            "expires_at": "TEXT",
+        }
+        for name, col_type in columns.items():
+            if name not in existing:
+                cursor.execute(f"ALTER TABLE rules ADD COLUMN {name} {col_type}")
+    except Exception as e:
+        print(f"Rules Column Ensure Error: {e}")
+
+
 def init_db():
     try:
         conn = get_db()
@@ -48,20 +63,6 @@ def init_db():
 
 
 init_db()
-
-def _ensure_columns(cursor):
-    try:
-        cursor.execute("PRAGMA table_info(rules)")
-        existing = {row[1] for row in cursor.fetchall()}
-        columns = {
-            "source": "TEXT",
-            "expires_at": "TEXT",
-        }
-        for name, col_type in columns.items():
-            if name not in existing:
-                cursor.execute(f"ALTER TABLE rules ADD COLUMN {name} {col_type}")
-    except Exception as e:
-        print(f"Rules Column Ensure Error: {e}")
 
 
 def list_rules() -> List[Dict]:
