@@ -1,3 +1,4 @@
+import json
 import requests
 from typing import Dict, List
 
@@ -11,22 +12,39 @@ def pull_otx_domains(api_key: str, limit: int = 1000) -> Dict:
     params = {"type": "domain", "limit": limit}
     resp = requests.get(url, headers=headers, params=params, timeout=30)
     resp.raise_for_status()
-    data = resp.json()
-    # OTX may return a list of objects or strings depending on export format
+    # OTX export is often plain text (newline-delimited), but may also be JSON.
+    # Be defensive and handle either.
     domains: List[str] = []
-    if isinstance(data, list):
-        for item in data:
-            if isinstance(item, dict):
+    data = None
+    try:
+        data = resp.json()
+    except json.JSONDecodeError:
+        data = None
+
+    if data is not None:
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    val = item.get("indicator") or item.get("domain") or item.get("value")
+                    if val:
+                        domains.append(str(val))
+                elif isinstance(item, str):
+                    domains.append(item)
+        elif isinstance(data, dict):
+            for item in data.get("results", []):
                 val = item.get("indicator") or item.get("domain") or item.get("value")
                 if val:
                     domains.append(str(val))
-            elif isinstance(item, str):
-                domains.append(item)
-    elif isinstance(data, dict):
-        for item in data.get("results", []):
-            val = item.get("indicator") or item.get("domain") or item.get("value")
-            if val:
-                domains.append(str(val))
+    else:
+        # Plain text export: one indicator per line, sometimes CSV-ish.
+        for line in resp.text.splitlines():
+            val = line.strip()
+            if not val:
+                continue
+            # If CSV-like, take the first token.
+            if "," in val:
+                val = val.split(",", 1)[0].strip()
+            domains.append(val)
 
     indicators = [build_domain_indicator(d, source="otx") for d in domains]
     return add_objects("zdns-threat-intel", indicators)
